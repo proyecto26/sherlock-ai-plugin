@@ -67,31 +67,77 @@ Sherlock equips your agent with these specialized skills:
 
 ### Installation
 
-1.  **Clone the Repository**
-    ```bash
-    git clone https://github.com/proyecto26/research-skills.git .claude
-    ```
+#### Option 1: CLI Install (Recommended)
 
-2.  **Configure `.claude/config.json` (Optional but Recommended)**
-    Ensure your skills are registered with your agent runtime (Claude Code / Cursor MCP).
+Use [npx skills](https://github.com/vercel-labs/skills) to install skills directly:
 
-3.  **Authentication**
-    Some skills (like `genimg-gemini-web` and `paper-analyzer`) require API tokens or login sessions.
-    *   **Gemini**: Run `npx -y bun .claude/skills/genimg-gemini-web/scripts/main.ts --login`
-    *   **MinerU**: Export `MINERU_TOKEN` in your environment.
+```bash
+# Install all skills
+npx skills add proyecto26/sherlock-ai-plugin
+
+# Install specific skills
+npx skills add proyecto26/sherlock-ai-plugin --skill paper-comic genimg-gemini-web
+
+# List available skills
+npx skills add proyecto26/sherlock-ai-plugin --list
+```
+
+This automatically installs to your `.claude/skills/` directory.
+
+#### Option 2: Claude Code Plugin
+
+Install via Claude Code's built-in plugin system:
+
+```bash
+# Add the marketplace
+/plugin marketplace add proyecto26/sherlock-ai-plugin
+
+# Install all marketing skills
+/plugin install sherlock-ai-plugin
+```
+
+#### Option 3: Clone and Copy
+
+Clone the entire repo and copy the skills folder:
+
+```bash
+git clone https://github.com/proyecto26/sherlock-ai-plugin.git
+cp -r sherlock-ai-plugin/skills/* .claude/skills/
+```
+
+#### Option 4: Git Submodule
+
+Add as a submodule for easy updates:
+
+```bash
+git submodule add https://github.com/proyecto26/sherlock-ai-plugin.git .claude/sherlock-ai-plugin
+```
+
+Then reference skills from `.claude/sherlock-ai-plugin/skills/`.
+
+#### Option 5: Fork and Customize
+
+1. Fork this repository
+2. Customize skills for your specific needs
+3. Clone your fork into your projects
+
+
+### Authentication
+Some skills (like `paper-analyzer`) require API tokens or login sessions.
+*   **MinerU**: Export `MINERU_TOKEN` in your environment.
 
 ### Usage Examples
 
-**"Sherlock, implement this paper for me."**
+**"Implement the code of this paper for me."**
 > Triggers **Paper2Code** to read the PDF, plan the architecture, and write the Python implementation.
 
-**"Sherlock, explain this complex transformer architecture as a comic."**
+**"Explain this complex transformer architecture as a comic."**
 > Triggers **Paper Comic** to create a visual storyboard explaining the concept.
 
-**"Sherlock, I need a deep research report on the state of LLM reasoning."**
+**"I need a deep research report on the state of LLM reasoning."**
 > Triggers **Deep Research** to crawl, analyze, and compile a multi-page cited report.
 
-**"Sherlock, visualize the flow of data in this system."**
+**"Visualize the flow of data in this system."**
 > Triggers **Visual Architect** to design a schematic diagram prompt.
 
 ---
@@ -112,7 +158,7 @@ skills/
 
 ## 🤝 Contribution
 
-Sherlock learns from the community. If you have a new skill module or an improvement to an existing detective tool, please open a PR!
+Sherlock AI learns from the community. If you have a new skill module or an improvement to an existing detective tool, please open a PR!
 
 ## Credits
 
