@@ -1,0 +1,15 @@
+# Normalize all text files to LF on commit, regardless of OS
+* text=auto eol=lf
+
+# Ensure these are always treated as text with LF
+*.md text eol=lf
+*.ts text eol=lf
+*.py text eol=lf
+*.txt text eol=lf
+*.json text eol=lf
+*.sh text eol=lf
+
+# Binary files — don't touch
+*.png binary
+*.jpg binary
+*.gif binary

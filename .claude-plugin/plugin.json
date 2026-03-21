@@ -1,0 +1,23 @@
+{
+  "name": "sherlock-ai-plugin",
+  "version": "1.0.0",
+  "description": "Research & Implementation Supercharged with a curated list of AI skills for academic paper analysis, code generation, comic creation, visual schemas, and deep research.",
+  "author": {
+    "name": "Proyecto 26",
+    "email": "jd@proyecto26.com",
+    "url": "https://github.com/proyecto26"
+  },
+  "homepage": "https://github.com/proyecto26/sherlock-ai-plugin",
+  "repository": "https://github.com/proyecto26/sherlock-ai-plugin",
+  "license": "MIT",
+  "keywords": [
+    "research",
+    "academic",
+    "paper-analysis",
+    "paper2code",
+    "image-generation",
+    "gemini",
+    "comic",
+    "visualization"
+  ]
+}
