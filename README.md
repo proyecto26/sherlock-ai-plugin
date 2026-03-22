@@ -156,11 +156,21 @@ skills/
 
 ---
 
+## 🌟 Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=proyecto26/sherlock-ai-plugin&type=Date)](https://star-history.com/#proyecto26/sherlock-ai-plugin-code&Date)
+
+## 💜 Sponsors
+
+This project is free and open source. Sponsors help keep it maintained and growing.
+
+[**Become a Sponsor**](https://github.com/sponsors/proyecto26) | [Sponsorship Program](https://proyecto26.com/sponsors/)
+
 ## 🤝 Contribution
 
 Sherlock AI learns from the community. If you have a new skill module or an improvement to an existing detective tool, please open a PR!
 
-## Credits
+## 👍 Credits
 
 - [Claude Code skills for academic papers](https://github.com/zsyggg/paper-craft-skills)
 
