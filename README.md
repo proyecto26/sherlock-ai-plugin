@@ -168,13 +168,20 @@ This project is free and open source. Sponsors help keep it maintained and growi
 
 ## 🤝 Contribution
 
-Sherlock AI learns from the community. If you have a new skill module or an improvement to an existing detective tool, please open a PR!
+When contributing to this repository, please first discuss the change you wish to make via issue,
+email, or any other method with the owners of this repository before making a change.
+ 
+Contributions are what make the open-source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated** ❤️.
+ 
+You can learn more about how you can contribute to this project in the [contribution guide](https://github.com/proyecto26/.github/blob/master/CONTRIBUTING.md).
 
 ## 👍 Credits
 
 - [Claude Code skills for academic papers](https://github.com/zsyggg/paper-craft-skills)
 
 ## Happy vibe researching 💯
-Made with ❤️ by [Proyecto 26](https://proyecto26.com)
+Made with ❤️ by [Proyecto 26](https://proyecto26.com) - Changing the world with small contributions.
 
-<img width="150px" src="https://avatars0.githubusercontent.com/u/28855608?s=200&v=4" align="right">
+One hand can accomplish great things, but many can take you into space and beyond! 🌌
+
+Together we do more, together we are more ❤️ <img width="150px" src="https://avatars0.githubusercontent.com/u/28855608?s=200&v=4" align="right">
