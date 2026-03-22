@@ -174,7 +174,7 @@ Sherlock AI learns from the community. If you have a new skill module or an impr
 
 - [Claude Code skills for academic papers](https://github.com/zsyggg/paper-craft-skills)
 
-## Happy coding 💯
+## Happy vibe researching 💯
 Made with ❤️
 
 <img width="150px" src="https://avatars0.githubusercontent.com/u/28855608?s=200&v=4" align="right">
