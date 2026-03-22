@@ -12,7 +12,14 @@
       "description": "Research & Implementation Supercharged with a curated list of AI skills for academic paper analysis, code generation, comic creation, visual schemas, and deep research.",
       "source": "./",
       "strict": false,
-      "skills": ["./skills/deep-research", "./skills/genimg-gemini-web", "./skills/paper-analyzer", "./skills/paper-comic", "./skills/paper2code", "./skills/visual-architect"],
+      "skills": [
+        "./skills/deep-research",
+        "./skills/genimg-gemini-web",
+        "./skills/paper-analyzer",
+        "./skills/paper-comic",
+        "./skills/paper2code",
+        "./skills/visual-architect"
+      ],
       "category": "development"
     }
   ]
