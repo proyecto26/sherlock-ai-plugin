@@ -1,5 +1,7 @@
 # 🕵️‍♂️ Sherlock AI Plugin
 
+
+<img src="./images/claude-mascot-jumping-animated.svg" width="150">
 <table>
   <tr>
     <td>
