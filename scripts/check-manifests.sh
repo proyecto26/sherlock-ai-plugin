@@ -11,6 +11,7 @@
 #   .claude-plugin/marketplace.json entry source (Claude — strict:true + auto-discovery)
 #   .codex-plugin/plugin.json required fields and skills pointer
 #   both catalogs agreeing on the marketplace name (Copilot and Codex install by it)
+#   the contact email agreeing between plugin.json author and marketplace owner
 #   every skills/*/SKILL.md that hosts discover
 # and runs the real host validators that exist: `claude plugin validate` and the
 # Agent Plugins 1.0.0 JSON schema (needs python jsonschema + network; skipped otherwise).
@@ -121,6 +122,16 @@ if claude_mp_name == name:
     errors.append(
         f"marketplace name {claude_mp_name!r} is identical to the plugin name; "
         "use a distinct '<plugin>-marketplace' name so '<plugin>@<marketplace>' reads unambiguously"
+    )
+
+# Contact details drift silently because the Claude marketplace calls it `owner`
+# while every other manifest calls it `author`. Users see whichever their host reads.
+author_email = (root.get("author") or {}).get("email")
+owner_email = (claude_mp.get("owner") or {}).get("email")
+if author_email and owner_email and author_email != owner_email:
+    errors.append(
+        f"contact email differs: plugin.json author.email is {author_email!r}, "
+        f".claude-plugin/marketplace.json owner.email is {owner_email!r}"
     )
 
 if codex.get("skills") != "./skills/":

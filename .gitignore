@@ -2,4 +2,13 @@
 .DS_Store
 **/.DS_Store
 
+# Generated images and scratch output at the repo root. Hosts copy the whole
+# plugin root on install (only dot-directories are skipped), so stray files here
+# would ship to every user. Real README assets live in images/.
+/*.png
+/*.jpg
+/*.jpeg
+/*.webp
+/generated.png
+
 # Temporary files
