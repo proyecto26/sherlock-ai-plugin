@@ -52,8 +52,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `.agents/plugins/marketplace.json` — Codex/Copilot catalog entry.
   - `.claude-plugin/*` — unchanged in shape, bumped to 1.1.0.
 - `scripts/check-manifests.sh` asserts name/version/description parity across all
-  host manifests, the Agent Plugins closed-schema shape, install wiring, and that
-  every `skills/*` directory carries a discoverable `SKILL.md`.
+  host manifests, the Agent Plugins closed-schema shape, install wiring, that
+  every `skills/*` directory carries a discoverable `SKILL.md`, and that both
+  catalogs advertise the same marketplace name.
+- **Marketplace renamed** from `sherlock-ai-plugin` to `sherlock-ai-plugin-marketplace`.
+  Copilot CLI reads `.claude-plugin/marketplace.json` and Codex reads
+  `.agents/plugins/marketplace.json`, and both install via `<plugin>@<marketplace>` —
+  so the two catalogs must agree, and a marketplace named identically to the plugin
+  makes `sherlock-ai-plugin@sherlock-ai-plugin` ambiguous. Matches the Seldon plugin's
+  convention. Claude Code users who pinned the old marketplace name should re-add it.
+- Restored `category: "development"` on the Claude marketplace entry (dropped as
+  collateral in b5ccaec, which targeted conflicting *component* specs; `category`
+  is display metadata and is compatible with `strict:true` auto-discovery).
+
+### Validated on (2026-08-31, macOS 15, this release's working tree)
+
+| Host | Check | Result |
+|------|-------|--------|
+| Claude Code | `claude plugin validate .` | Passed |
+| Agent Plugins 1.0 | `plugin.json` validated against `https://agent-plugins.org/schemas/1.0.0/plugin.schema.json` (python `jsonschema`) | No errors |
+| Manifest consistency | `bash scripts/check-manifests.sh` | Consistent |
+| OpenAI Codex CLI 0.149.1 | `codex plugin marketplace add ./` then `codex plugin add sherlock-ai-plugin@sherlock-ai-plugin-marketplace` | Installed `1.1.0`; all **6 skills** present with `SKILL.md` under the installed root; removed cleanly afterwards |
+| `check-manifests.sh` gate | tampered copy (marketplace names diverged) | Fails as expected |
+| Gemini image generation | 3 real generations after re-login; drift warning fires on `-m gemini-2.5-pro` | Working |
+
+Not exercised: GitHub Copilot CLI (not installed on this machine) and Cursor
+plugin install (headless install not available). The Codex run above is the
+evidence that root-level `plugin.json` + `skills/` auto-discovery installs
+correctly on a non-Claude host.
 
 ## [1.0.0]
 

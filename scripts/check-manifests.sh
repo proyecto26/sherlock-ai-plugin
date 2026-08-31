@@ -10,6 +10,7 @@
 #   .agents/plugins/marketplace.json entry source/path/policy (Codex / Copilot)
 #   .claude-plugin/marketplace.json entry source (Claude — strict:true + auto-discovery)
 #   .codex-plugin/plugin.json required fields and skills pointer
+#   both catalogs agreeing on the marketplace name (Copilot and Codex install by it)
 #   every skills/*/SKILL.md that hosts discover
 # and runs the real host validators that exist: `claude plugin validate` and the
 # Agent Plugins 1.0.0 JSON schema (needs python jsonschema + network; skipped otherwise).
@@ -104,6 +105,23 @@ for comp in ("skills", "commands", "agents", "hooks", "mcpServers"):
         errors.append(f".claude-plugin/marketplace.json[{name}] must not declare '{comp}' (uses auto-discovery)")
     if comp in claude:
         errors.append(f".claude-plugin/plugin.json must not declare '{comp}' (uses auto-discovery)")
+
+# Both catalogs must advertise the same marketplace name: Copilot CLI reads the
+# Claude marketplace file while Codex reads the Agents one, and both install via
+# `<plugin>@<marketplace>`. Divergent names mean the documented install command
+# is wrong on one host.
+claude_mp_name = claude_mp.get("name")
+codex_mp_name = codex_mp.get("name")
+if claude_mp_name != codex_mp_name:
+    errors.append(
+        f"marketplace name differs: .claude-plugin/marketplace.json is {claude_mp_name!r}, "
+        f".agents/plugins/marketplace.json is {codex_mp_name!r} — install commands would disagree per host"
+    )
+if claude_mp_name == name:
+    errors.append(
+        f"marketplace name {claude_mp_name!r} is identical to the plugin name; "
+        "use a distinct '<plugin>-marketplace' name so '<plugin>@<marketplace>' reads unambiguously"
+    )
 
 if codex.get("skills") != "./skills/":
     errors.append(".codex-plugin/plugin.json 'skills' should be './skills/'")

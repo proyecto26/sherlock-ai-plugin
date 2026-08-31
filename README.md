@@ -100,17 +100,30 @@ Install via Claude Code's built-in plugin system:
 
 #### Option 3: Codex / Cursor / Copilot CLI (Agent Plugins)
 
-This plugin follows the [Agent Plugins](https://agent-plugins.org/) open standard,
-so the same repository installs on any conforming host:
+This plugin follows the [Agent Plugins 1.0](https://agent-plugins.org/specification)
+open standard, so the same repository installs on any conforming host:
 
-```bash
-# OpenAI Codex
-codex plugin marketplace add proyecto26/sherlock-ai-plugin
-codex plugin install sherlock-ai-plugin
-```
+| Host | Install |
+|------|---------|
+| **OpenAI Codex** | `codex plugin marketplace add proyecto26/sherlock-ai-plugin` then `codex plugin add sherlock-ai-plugin@sherlock-ai-plugin-marketplace` (or pick it from `/plugins`) |
+| **GitHub Copilot CLI** | `copilot plugin marketplace add proyecto26/sherlock-ai-plugin` then `copilot plugin install sherlock-ai-plugin@sherlock-ai-plugin-marketplace` |
+| **Cursor** | Settings → Plugins → install from Git URL `https://github.com/proyecto26/sherlock-ai-plugin` (Agent Plugins format is detected from the root `plugin.json`) |
 
-For hosts that read a plugin directly, point them at the repo root — `plugin.json`
-declares the plugin and `skills/` is auto-discovered.
+Which file each host reads:
+
+- `plugin.json` (repo root) — the portable [Agent Plugins 1.0](https://agent-plugins.org/specification)
+  manifest. Cursor and Copilot CLI read this directly and discover `skills/` automatically.
+- `.codex-plugin/plugin.json` + `.agents/plugins/marketplace.json` — OpenAI Codex manifest and catalog.
+- `.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json` — Claude Code manifest and
+  catalog (Copilot CLI also reads this marketplace file).
+
+All six skills are discovered from `skills/` — no host manifest repeats the list,
+so adding a skill is a one-directory change. Run `bash scripts/check-manifests.sh`
+before releasing to confirm every manifest still agrees.
+
+> Copilot CLI note: installing from a working tree that contains `.git/` can fail
+> with *access denied* while Copilot copies the directory. Install from a clean
+> checkout or from the marketplace.
 
 #### Option 4: Clone and Copy
 

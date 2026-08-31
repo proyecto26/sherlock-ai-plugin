@@ -1,6 +1,6 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "sherlock-ai-plugin",
+  "name": "sherlock-ai-plugin-marketplace",
   "description": "Research & Implementation Supercharged with a curated list of AI skills",
   "owner": {
     "name": "Proyecto 26",
@@ -11,7 +11,8 @@
       "name": "sherlock-ai-plugin",
       "description": "Research & Implementation Supercharged with a curated list of AI skills for academic paper analysis, code generation, comic creation, visual schemas, and deep research.",
       "version": "1.1.0",
-      "source": "./"
+      "source": "./",
+      "category": "development"
     }
   ]
 }
