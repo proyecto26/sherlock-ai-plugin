@@ -1,0 +1,20 @@
+{
+  "name": "sherlock-ai-plugin-marketplace",
+  "interface": {
+    "displayName": "Sherlock"
+  },
+  "plugins": [
+    {
+      "name": "sherlock-ai-plugin",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

@@ -98,7 +98,34 @@ Install via Claude Code's built-in plugin system:
 /plugin install sherlock-ai-plugin
 ```
 
-#### Option 3: Clone and Copy
+#### Option 3: Codex / Cursor / Copilot CLI (Agent Plugins)
+
+This plugin follows the [Agent Plugins 1.0](https://agent-plugins.org/specification)
+open standard, so the same repository installs on any conforming host:
+
+| Host | Install |
+|------|---------|
+| **OpenAI Codex** | `codex plugin marketplace add proyecto26/sherlock-ai-plugin` then `codex plugin add sherlock-ai-plugin@sherlock-ai-plugin-marketplace` (or pick it from `/plugins`) |
+| **GitHub Copilot CLI** | `copilot plugin marketplace add proyecto26/sherlock-ai-plugin` then `copilot plugin install sherlock-ai-plugin@sherlock-ai-plugin-marketplace` |
+| **Cursor** | Settings → Plugins → install from Git URL `https://github.com/proyecto26/sherlock-ai-plugin` (Agent Plugins format is detected from the root `plugin.json`) |
+
+Which file each host reads:
+
+- `plugin.json` (repo root) — the portable [Agent Plugins 1.0](https://agent-plugins.org/specification)
+  manifest. Cursor and Copilot CLI read this directly and discover `skills/` automatically.
+- `.codex-plugin/plugin.json` + `.agents/plugins/marketplace.json` — OpenAI Codex manifest and catalog.
+- `.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json` — Claude Code manifest and
+  catalog (Copilot CLI also reads this marketplace file).
+
+All six skills are discovered from `skills/` — no host manifest repeats the list,
+so adding a skill is a one-directory change. Run `bash scripts/check-manifests.sh`
+before releasing to confirm every manifest still agrees.
+
+> Copilot CLI note: installing from a working tree that contains `.git/` can fail
+> with *access denied* while Copilot copies the directory. Install from a clean
+> checkout or from the marketplace.
+
+#### Option 4: Clone and Copy
 
 Clone the entire repo and copy the skills folder:
 
@@ -107,7 +134,7 @@ git clone https://github.com/proyecto26/sherlock-ai-plugin.git
 cp -r sherlock-ai-plugin/skills/* .claude/skills/
 ```
 
-#### Option 4: Git Submodule
+#### Option 5: Git Submodule
 
 Add as a submodule for easy updates:
 
@@ -117,7 +144,7 @@ git submodule add https://github.com/proyecto26/sherlock-ai-plugin.git .claude/s
 
 Then reference skills from `.claude/sherlock-ai-plugin/skills/`.
 
-#### Option 5: Fork and Customize
+#### Option 6: Fork and Customize
 
 1. Fork this repository
 2. Customize skills for your specific needs
@@ -127,6 +154,13 @@ Then reference skills from `.claude/sherlock-ai-plugin/skills/`.
 ### Authentication
 Some skills (like `paper-analyzer`) require API tokens or login sessions.
 *   **MinerU**: Export `MINERU_TOKEN` in your environment.
+*   **Gemini**: `genimg-gemini-web` needs a signed-in Google session. Run
+    `npx -y bun skills/genimg-gemini-web/scripts/main.ts --login` and complete
+    sign-in in the Chrome window that opens.
+
+> **Image generation requires being signed in.** Google serves signed-out
+> visitors a free Flash-tier model that declines to create images. Cached cookies
+> expire, so if image generation stops working, re-run `--login`.
 
 ### Usage Examples
 
@@ -147,6 +181,12 @@ Some skills (like `paper-analyzer`) require API tokens or login sessions.
 ## 📂 Structure
 
 ```
+plugin.json              # Agent Plugins 1.0.0 manifest (Cursor, Copilot CLI)
+.codex-plugin/           # OpenAI Codex manifest
+.claude-plugin/          # Claude Code manifest + marketplace
+.agents/plugins/         # Codex / Copilot catalog entry
+scripts/
+└── check-manifests.sh   # Asserts every host manifest agrees
 skills/
 ├── deep-research/       # Report generation & evidence tracking
 ├── paper2code/          # Paper implementation pipeline

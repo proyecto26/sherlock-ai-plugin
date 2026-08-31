@@ -91,7 +91,8 @@ npx -y bun scripts/main.ts "Hello" --json
 | `--sessionId <id>` | Session ID for multi-turn conversation (agent generates unique ID) |
 | `--list-sessions` | List saved sessions (max 100, sorted by update time) |
 | `--json` | Output as JSON |
-| `--login` | Refresh cookies only, then exit |
+| `--login` | Sign in / refresh cookies, then exit (non-zero if still signed out) |
+| `--force` | With `--login`, always open the browser |
 | `--cookie-path <path>` | Custom cookie file path |
 | `--profile-dir <path>` | Chrome profile directory |
 | `--help`, `-h` | Show help |
@@ -109,9 +110,31 @@ CLI note: `scripts/main.ts` supports text generation, image generation, and mult
 First run opens Chrome to authenticate with Google. Cookies are cached for subsequent runs.
 
 ```bash
-# Force cookie refresh
+# Sign in / refresh cookies (exits non-zero if still signed out)
 npx -y bun scripts/main.ts --login
+
+# Always re-open the browser, even if cached cookies look valid
+npx -y bun scripts/main.ts --login --force
 ```
+
+**Image generation requires a signed-in session.** Google serves signed-out
+visitors a free Flash-tier model that refuses to create images — it answers with
+prose like *"can't create it right now... it's possible you're signed out"*
+instead of failing. The skill detects this and errors out with the fix, rather
+than reporting an empty result.
+
+### Troubleshooting
+
+| Symptom | Cause | Fix |
+|---------|-------|-----|
+| `Gemini session is not signed in` | Cached cookies expired (`__Secure-1PSIDTS` rotates often) | `--login` |
+| Image command returns text, no file | Signed-out session downgraded to Flash tier | `--login` |
+| `Requested "..." but Gemini served "..."` | Google rotated the model id for that alias | Use `-m gemini-3-pro` |
+| `Unable to locate Gemini access token` | Gemini moved host, or network/redirect issue | Set `GEMINI_WEB_BASE_URL` |
+
+Known drift (verified Aug 2026): the `gemini-3-pro` alias maps correctly to the
+current Pro tier. The `gemini-2.5-pro` alias id is stale and silently resolves to
+a Flash model — the CLI warns when this happens. Prefer `gemini-3-pro`.
 
 ## Environment variables
 
@@ -121,6 +144,7 @@ npx -y bun scripts/main.ts --login
 | `GEMINI_WEB_COOKIE_PATH` | Cookie file path |
 | `GEMINI_WEB_CHROME_PROFILE_DIR` | Chrome profile directory |
 | `GEMINI_WEB_CHROME_PATH` | Chrome executable path |
+| `GEMINI_WEB_BASE_URL` | Gemini origin override (default `https://gemini.google.com`) |
 
 ## Examples
 
