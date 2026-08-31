@@ -1,19 +1,17 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { BrowserRunOptions, BrowserRunResult, BrowserLogger, CookieParam } from '../browser/types.js';
-import { runGeminiWebWithFallback, saveFirstGeminiImageFromOutput } from './client.js';
+import { isGeminiSignedIn, runGeminiWebWithFallback, saveFirstGeminiImageFromOutput } from './client.js';
 import type { GeminiWebModelId, GeminiWebRunOutput } from './client.js';
 import {
     buildGeminiCookieMap,
     hasRequiredGeminiCookies,
     readGeminiCookieMapFromDisk,
 } from './cookie-store.js';
+import { USER_AGENT, signedOutMessage } from './constants.js';
 import type { GeminiWebOptions, GeminiWebResponse } from './types.js';
 
 export { hasRequiredGeminiCookies } from './cookie-store.js';
-
-const USER_AGENT =
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 
 function estimateTokenCount(text: string): number {
     return Math.ceil(text.length / 4);
@@ -268,6 +266,18 @@ export function createGeminiWebExecutor(
 
         const generateImagePath = resolveInvocationPath(geminiOptions.generateImage);
         const editImagePath = resolveInvocationPath(geminiOptions.editImage);
+
+        // Image/video generation is the one capability Google withholds from
+        // signed-out sessions, and it withholds it *silently* — the request
+        // succeeds and returns prose. Check up front so callers get an
+        // actionable error in seconds instead of after a 5-minute timeout.
+        if (generateImagePath || editImagePath || generateVideoPath) {
+            const signedIn = await isGeminiSignedIn(cookieMap, controller.signal);
+            if (!signedIn) {
+                clearTimeout(timeout);
+                throw new Error(signedOutMessage('Gemini media generation requires a signed-in session.'));
+            }
+        }
         const outputPath = resolveInvocationPath(geminiOptions.outputPath);
         const attachmentPaths = (runOptions.attachments ?? []).map((attachment) => attachment.path);
         const referenceImagePaths = normalizePathList(geminiOptions.referenceImages);

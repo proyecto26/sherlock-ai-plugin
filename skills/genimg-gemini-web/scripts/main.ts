@@ -2,7 +2,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
-import { fetchGeminiAccessToken, runGeminiWebWithFallback, saveFirstGeminiImageFromOutput } from './client.js';
+import {
+    GeminiNotSignedInError,
+    isGeminiSignedIn,
+    runGeminiWebWithFallback,
+    saveFirstGeminiImageFromOutput,
+} from './client.js';
 import { getGeminiCookieMapViaChrome } from './chrome-auth.js';
 import {
     hasRequiredGeminiCookies,
@@ -35,13 +40,15 @@ Options:
   --reference <files...>    Reference images for vision input
   --sessionId <id>          Session ID for multi-turn conversation (agent should generate unique ID)
   --list-sessions           List saved sessions (max 100, sorted by update time)
-  --login                   Only refresh cookies, then exit
+  --login                   Sign in / refresh cookies, then exit (fails if still signed out)
+  --force                   With --login, always open the browser even if cookies look valid
   --cookie-path <path>      Cookie file path (default: ${cookiePath})
   --profile-dir <path>      Chrome profile dir (default: ${profileDir})
   -h, --help                Show help
 
 Env overrides:
   GEMINI_WEB_DATA_DIR, GEMINI_WEB_COOKIE_PATH, GEMINI_WEB_CHROME_PROFILE_DIR, GEMINI_WEB_CHROME_PATH
+  GEMINI_WEB_BASE_URL       Override the Gemini origin (default: https://gemini.google.com)
 `);
 
     process.exit(exitCode);
@@ -86,6 +93,7 @@ function parseArgs(argv: string[]): {
     referenceImages?: string[];
     sessionId?: string;
     listSessions?: boolean;
+    force?: boolean;
 } {
     const out: ReturnType<typeof parseArgs> = {};
     const positional: string[] = [];
@@ -117,6 +125,10 @@ function parseArgs(argv: string[]): {
         }
         if (arg === '--login') {
             out.loginOnly = true;
+            continue;
+        }
+        if (arg === '--force') {
+            out.force = true;
             continue;
         }
         if (arg === '--prompt' || arg === '-p') {
@@ -222,16 +234,21 @@ function parseArgs(argv: string[]): {
     return out;
 }
 
+/**
+ * A cookie map is only "valid" when it resolves to a *signed-in* session.
+ *
+ * Presence of the cookies is not enough: expired __Secure-1PSID cookies still
+ * load /app fine, Google just serves the anonymous free tier, which cannot
+ * generate images. Checking sign-in here is what makes `--login` actually
+ * re-open Chrome instead of exiting on stale cookies.
+ */
 async function isCookieMapValid(cookieMap: Record<string, string>): Promise<boolean> {
     if (!hasRequiredGeminiCookies(cookieMap)) return false;
 
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 30_000);
     try {
-        await fetchGeminiAccessToken(cookieMap, controller.signal);
-        return true;
-    } catch {
-        return false;
+        return await isGeminiSignedIn(cookieMap, controller.signal);
     } finally {
         clearTimeout(timer);
     }
@@ -240,16 +257,40 @@ async function isCookieMapValid(cookieMap: Record<string, string>): Promise<bool
 async function ensureGeminiCookieMap(options: {
     cookiePath: string;
     profileDir: string;
+    force?: boolean;
 }): Promise<Record<string, string>> {
     const log = (msg: string) => console.error(msg);
 
     let cookieMap = await readGeminiCookieMapFromDisk({ cookiePath: options.cookiePath, log });
-    if (await isCookieMapValid(cookieMap)) return cookieMap;
+    if (!options.force && (await isCookieMapValid(cookieMap))) return cookieMap;
 
-    log('[gemini-web] No valid cookies found. Opening browser to sync Gemini cookies...');
+    log(
+        options.force
+            ? '[gemini-web] --force: opening browser to re-sync Gemini cookies...'
+            : '[gemini-web] Cookies are missing or signed out. Opening browser to sync Gemini cookies...',
+    );
     cookieMap = await getGeminiCookieMapViaChrome({ userDataDir: options.profileDir, log });
     await writeGeminiCookieMapToDisk(cookieMap, { cookiePath: options.cookiePath, log });
     return cookieMap;
+}
+
+/**
+ * Warns when Google served a weaker model than the one requested.
+ *
+ * The x-goog-ext model ids rotate; a stale id is ignored rather than rejected,
+ * so "I asked for Pro and got Flash" is otherwise invisible — and Flash-tier
+ * models decline image generation.
+ */
+function warnOnModelDrift(requested: string, servedModel: string | null | undefined): void {
+    if (!servedModel) return;
+    const wantedPro = requested.includes('pro');
+    if (wantedPro && !/Pro|Ultra/i.test(servedModel)) {
+        console.error(
+            `[gemini-web] Requested "${requested}" but Gemini served "${servedModel}". ` +
+                'The model id for this alias is stale (Google rotates them); image generation may be unavailable. ' +
+                'Use -m gemini-3-pro, which is currently mapped correctly.',
+        );
+    }
 }
 
 function resolveModel(value: string): 'gemini-3-pro' | 'gemini-2.5-pro' | 'gemini-2.5-flash' {
@@ -304,7 +345,14 @@ async function main(): Promise<void> {
     }
 
     if (args.loginOnly) {
-        await ensureGeminiCookieMap({ cookiePath, profileDir });
+        const map = await ensureGeminiCookieMap({ cookiePath, profileDir, force: args.force });
+        const ok = await isCookieMapValid(map);
+        console.error(
+            ok
+                ? '[gemini-web] Signed in to Gemini. Image generation is available.'
+                : '[gemini-web] Still signed out after the browser flow — image generation will not work.',
+        );
+        if (!ok) process.exit(1);
         return;
     }
 
@@ -339,6 +387,8 @@ async function main(): Promise<void> {
                 chatMetadata,
                 signal: controller.signal,
             });
+
+            warnOnModelDrift(desiredModel, out.servedModel);
 
             if (args.sessionId && out.metadata) {
                 await writeSession(args.sessionId, out.metadata, prompt, out.text ?? '', out.errorMessage);
@@ -397,6 +447,8 @@ async function main(): Promise<void> {
                     chatMetadata,
                     signal: controller.signal,
                 });
+
+                warnOnModelDrift(desiredModel, out.servedModel);
 
                 if (args.sessionId && out.metadata) {
                     await writeSession(args.sessionId, out.metadata, prompt, out.text ?? '', out.errorMessage);

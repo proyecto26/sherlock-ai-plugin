@@ -1,7 +1,32 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-export type GeminiWebModelId = 'gemini-3-pro' | 'gemini-2.5-pro' | 'gemini-2.5-flash';
+import {
+    ANONYMOUS_TOKEN_KEY,
+    AUTHENTICATED_TOKEN_KEY,
+    GEMINI_APP_URL,
+    GEMINI_ORIGIN,
+    GEMINI_STREAM_GENERATE_URL,
+    GEMINI_UPLOAD_PUSH_ID,
+    GEMINI_UPLOAD_URL,
+    MODEL_HEADER_NAME,
+    MODEL_HEADERS,
+    USER_AGENT,
+    looksLikeSignedOutImageRefusal,
+    signedOutMessage,
+} from './constants.js';
+import type { GeminiWebModelId } from './constants.js';
+
+export type { GeminiWebModelId };
+
+/** Raised when the cached cookies resolve to a signed-out (anonymous) session. */
+export class GeminiNotSignedInError extends Error {
+    readonly code = 'GEMINI_NOT_SIGNED_IN';
+    constructor(detail?: string) {
+        super(signedOutMessage(detail));
+        this.name = 'GeminiNotSignedInError';
+    }
+}
 
 export interface GeminiWebRunInput {
     prompt: string;
@@ -27,23 +52,11 @@ export interface GeminiWebRunOutput {
     images: GeminiWebCandidateImage[];
     errorCode?: number;
     errorMessage?: string;
+    /** False when the request ran as an anonymous (signed-out) visitor. */
+    authenticated: boolean;
+    /** Model label Gemini reported using, e.g. "3.1 Pro". Null if not present. */
+    servedModel?: string | null;
 }
-
-const USER_AGENT =
-    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
-
-const MODEL_HEADER_NAME = 'x-goog-ext-525001261-jspb';
-const MODEL_HEADERS: Record<GeminiWebModelId, string> = {
-    'gemini-3-pro': '[1,null,null,null,"9d8ca3786ebdfbea",null,null,0,[4]]',
-    'gemini-2.5-pro': '[1,null,null,null,"4af6c7f5da75d65d",null,null,0,[4]]',
-    'gemini-2.5-flash': '[1,null,null,null,"9ec249fc9ad08861",null,null,0,[4]]',
-};
-
-const GEMINI_APP_URL = 'https://gemini.google.com/app';
-const GEMINI_STREAM_GENERATE_URL =
-    'https://gemini.google.com/_/BardChatUi/data/assistant.lamda.BardFrontendService/StreamGenerate';
-const GEMINI_UPLOAD_URL = 'https://content-push.googleapis.com/upload';
-const GEMINI_UPLOAD_PUSH_ID = 'feeds/mcudyrk2a4khkz';
 
 function getNestedValue<T>(value: unknown, pathParts: Array<string | number>, fallback: T): T {
     let current: unknown = value;
@@ -125,21 +138,58 @@ async function fetchWithCookieJar(
     throw new Error(`Too many redirects while fetching ${url} (>${maxRedirects}).`);
 }
 
+export interface GeminiAccessToken {
+    token: string;
+    /** True only when the /app bootstrap carried SNlM0e, i.e. a real signed-in session. */
+    authenticated: boolean;
+}
+
+/**
+ * Reads the access token from the /app bootstrap payload.
+ *
+ * Both a signed-in and a signed-out visitor get *a* token, so the caller is told
+ * which one it received. Treating the anonymous `thykhd` token as success is what
+ * made expired cookies look healthy while image generation silently failed.
+ */
+export async function fetchGeminiAccessTokenInfo(
+    cookieMap: Record<string, string>,
+    signal?: AbortSignal,
+): Promise<GeminiAccessToken> {
+    const res = await fetchWithCookieJar(GEMINI_APP_URL, { method: 'GET' }, cookieMap, signal);
+    const html = await res.text();
+
+    for (const [key, authenticated] of [
+        [AUTHENTICATED_TOKEN_KEY, true],
+        [ANONYMOUS_TOKEN_KEY, false],
+    ] as const) {
+        const match = html.match(new RegExp(`"${key}":"(.*?)"`));
+        if (match?.[1]) return { token: match[1], authenticated };
+    }
+
+    throw new Error(
+        `Unable to locate Gemini access token on ${GEMINI_ORIGIN}/app (missing ${AUTHENTICATED_TOKEN_KEY}/${ANONYMOUS_TOKEN_KEY}). ` +
+            'If Gemini moved to a new host, set GEMINI_WEB_BASE_URL to the new origin.',
+    );
+}
+
+/** True when the cookies resolve to a signed-in Gemini session. */
+export async function isGeminiSignedIn(
+    cookieMap: Record<string, string>,
+    signal?: AbortSignal,
+): Promise<boolean> {
+    try {
+        return (await fetchGeminiAccessTokenInfo(cookieMap, signal)).authenticated;
+    } catch {
+        return false;
+    }
+}
+
+/** Back-compat wrapper: returns the raw token regardless of sign-in state. */
 export async function fetchGeminiAccessToken(
     cookieMap: Record<string, string>,
     signal?: AbortSignal,
 ): Promise<string> {
-    const res = await fetchWithCookieJar(GEMINI_APP_URL, { method: 'GET' }, cookieMap, signal);
-    const html = await res.text();
-
-    const tokens = ['SNlM0e', 'thykhd'] as const;
-    for (const key of tokens) {
-        const match = html.match(new RegExp(`"${key}":"(.*?)"`));
-        if (match?.[1]) return match[1];
-    }
-    throw new Error(
-        'Unable to locate Gemini access token on gemini.google.com/app (missing SNlM0e/thykhd).',
-    );
+    return (await fetchGeminiAccessTokenInfo(cookieMap, signal)).token;
 }
 
 function trimGeminiJsonEnvelope(text: string): string {
@@ -154,6 +204,19 @@ function trimGeminiJsonEnvelope(text: string): string {
 function extractErrorCode(responseJson: unknown): number | undefined {
     const code = getNestedValue<number>(responseJson, [0, 5, 2, 0, 1, 0], -1);
     return typeof code === 'number' && code >= 0 ? code : undefined;
+}
+
+/**
+ * Gemini echoes the model it actually used (e.g. "3.1 Pro", "3.7 Flash").
+ *
+ * The model is requested via an opaque hex id in the x-goog-ext header, and
+ * Google rotates those ids without notice. An unknown id is not rejected — the
+ * request silently falls back to the default model. Reading the echoed label
+ * back is the only way to notice that drift.
+ */
+export function extractServedModelLabel(rawText: string): string | null {
+    const match = rawText.match(/\\"(\d+\.\d+ (?:Pro|Flash|Flash-Lite|Ultra)[^\\"]{0,16})\\"/);
+    return match?.[1] ?? null;
 }
 
 function extractGgdlUrls(rawText: string): string[] {
@@ -411,7 +474,7 @@ export function isGeminiModelUnavailable(errorCode: number | undefined): boolean
 }
 
 export async function runGeminiWebOnce(input: GeminiWebRunInput): Promise<GeminiWebRunOutput> {
-    const at = await fetchGeminiAccessToken(input.cookieMap, input.signal);
+    const { token: at, authenticated } = await fetchGeminiAccessTokenInfo(input.cookieMap, input.signal);
     const cookieHeader = buildCookieHeader(input.cookieMap);
 
     const uploaded: Array<{ id: string; name: string }> = [];
@@ -451,6 +514,7 @@ export async function runGeminiWebOnce(input: GeminiWebRunInput): Promise<Gemini
             thoughts: null,
             metadata: input.chatMetadata ?? null,
             images: [],
+            authenticated,
             errorMessage: `Gemini request failed: ${res.status} ${res.statusText}`,
         };
     }
@@ -463,6 +527,8 @@ export async function runGeminiWebOnce(input: GeminiWebRunInput): Promise<Gemini
             thoughts: parsed.thoughts,
             metadata: parsed.metadata,
             images: parsed.images,
+            authenticated,
+            servedModel: extractServedModelLabel(rawResponseText),
             errorCode: parsed.errorCode,
         };
     } catch (error) {
@@ -480,6 +546,7 @@ export async function runGeminiWebOnce(input: GeminiWebRunInput): Promise<Gemini
             thoughts: null,
             metadata: input.chatMetadata ?? null,
             images: [],
+            authenticated,
             errorCode: typeof errorCode === 'number' ? errorCode : undefined,
             errorMessage: error instanceof Error ? error.message : String(error ?? ''),
         };
@@ -521,6 +588,15 @@ export async function saveFirstGeminiImageFromOutput(
     if (imageGenPreferred) {
         await downloadGeminiImage(imageGenPreferred, cookieMap, outputPath, signal);
         return { saved: true, imageCount: imageGen.length };
+    }
+
+    // Nothing to download. Distinguish "Gemini refused because we are signed out"
+    // (fixable: re-login) from "the model genuinely returned no image" (prompt issue).
+    if (!output.authenticated || looksLikeSignedOutImageRefusal(output.text)) {
+        throw new GeminiNotSignedInError(
+            `Gemini returned no image and the request ran ${output.authenticated ? 'with a session Google did not accept for image generation' : 'as a signed-out visitor'}.` +
+                (output.text ? `\nGemini said: ${output.text.trim()}` : ''),
+        );
     }
 
     return { saved: false, imageCount: 0 };

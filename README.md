@@ -98,7 +98,21 @@ Install via Claude Code's built-in plugin system:
 /plugin install sherlock-ai-plugin
 ```
 
-#### Option 3: Clone and Copy
+#### Option 3: Codex / Cursor / Copilot CLI (Agent Plugins)
+
+This plugin follows the [Agent Plugins](https://agent-plugins.org/) open standard,
+so the same repository installs on any conforming host:
+
+```bash
+# OpenAI Codex
+codex plugin marketplace add proyecto26/sherlock-ai-plugin
+codex plugin install sherlock-ai-plugin
+```
+
+For hosts that read a plugin directly, point them at the repo root — `plugin.json`
+declares the plugin and `skills/` is auto-discovered.
+
+#### Option 4: Clone and Copy
 
 Clone the entire repo and copy the skills folder:
 
@@ -107,7 +121,7 @@ git clone https://github.com/proyecto26/sherlock-ai-plugin.git
 cp -r sherlock-ai-plugin/skills/* .claude/skills/
 ```
 
-#### Option 4: Git Submodule
+#### Option 5: Git Submodule
 
 Add as a submodule for easy updates:
 
@@ -117,7 +131,7 @@ git submodule add https://github.com/proyecto26/sherlock-ai-plugin.git .claude/s
 
 Then reference skills from `.claude/sherlock-ai-plugin/skills/`.
 
-#### Option 5: Fork and Customize
+#### Option 6: Fork and Customize
 
 1. Fork this repository
 2. Customize skills for your specific needs
@@ -127,6 +141,13 @@ Then reference skills from `.claude/sherlock-ai-plugin/skills/`.
 ### Authentication
 Some skills (like `paper-analyzer`) require API tokens or login sessions.
 *   **MinerU**: Export `MINERU_TOKEN` in your environment.
+*   **Gemini**: `genimg-gemini-web` needs a signed-in Google session. Run
+    `npx -y bun skills/genimg-gemini-web/scripts/main.ts --login` and complete
+    sign-in in the Chrome window that opens.
+
+> **Image generation requires being signed in.** Google serves signed-out
+> visitors a free Flash-tier model that declines to create images. Cached cookies
+> expire, so if image generation stops working, re-run `--login`.
 
 ### Usage Examples
 
@@ -147,6 +168,12 @@ Some skills (like `paper-analyzer`) require API tokens or login sessions.
 ## 📂 Structure
 
 ```
+plugin.json              # Agent Plugins 1.0.0 manifest (Cursor, Copilot CLI)
+.codex-plugin/           # OpenAI Codex manifest
+.claude-plugin/          # Claude Code manifest + marketplace
+.agents/plugins/         # Codex / Copilot catalog entry
+scripts/
+└── check-manifests.sh   # Asserts every host manifest agrees
 skills/
 ├── deep-research/       # Report generation & evidence tracking
 ├── paper2code/          # Paper implementation pipeline

@@ -4,12 +4,14 @@ import { mkdir } from 'node:fs/promises';
 import net from 'node:net';
 import process from 'node:process';
 
-import { fetchGeminiAccessToken } from './client.js';
+import { fetchGeminiAccessTokenInfo } from './client.js';
 import type { GeminiWebLog } from './cookie-store.js';
 import { buildGeminiCookieMap, hasRequiredGeminiCookies } from './cookie-store.js';
 import { resolveGeminiWebChromeProfileDir } from './paths.js';
 
-const GEMINI_URL = 'https://gemini.google.com/app';
+import { GEMINI_APP_URL } from './constants.js';
+
+const GEMINI_URL = GEMINI_APP_URL;
 
 function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
@@ -293,13 +295,20 @@ export async function getGeminiCookieMapViaChrome(options?: {
                 try {
                     const controller = new AbortController();
                     const timer = setTimeout(() => controller.abort(), tokenCheckTimeoutMs);
+                    let authenticated: boolean;
                     try {
-                        await fetchGeminiAccessToken(cookieMap, controller.signal);
+                        ({ authenticated } = await fetchGeminiAccessTokenInfo(cookieMap, controller.signal));
                     } finally {
                         clearTimeout(timer);
                     }
-                    log?.('[gemini-web] Gemini cookies detected.');
-                    return cookieMap;
+                    // Google hands anonymous visitors a token too, so only a
+                    // signed-in session ends the wait — otherwise we would
+                    // persist signed-out cookies and "succeed" into a broken state.
+                    if (authenticated) {
+                        log?.('[gemini-web] Signed-in Gemini cookies detected.');
+                        return cookieMap;
+                    }
+                    lastTokenError = 'session is still signed out (anonymous token only)';
                 } catch (error) {
                     lastTokenError = error instanceof Error ? error.message : String(error);
                 }
